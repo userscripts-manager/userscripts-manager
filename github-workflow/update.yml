@@ -1,0 +1,39 @@
+name: "Update the tool to the latest version"
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  configure:
+    runs-on: "ubuntu-latest"
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+          token: ${{ secrets.PAT_WORKFLOW }}
+
+      - name: "git config"
+        run: |
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "<>"
+          git config --global pull.rebase true
+
+      - name: "Update the tool"
+        run: |
+          bash ./manage.sh update
+
+      - name: "Commit"
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No changes detected => everything is up-to-date"
+            exit 0
+          else
+            git add .
+            git commit -m "Update the tool to the latest version (from GitHub Actions)"
+            git push
+          fi

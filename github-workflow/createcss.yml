@@ -1,0 +1,33 @@
+name: "Create a new user style (css)"
+
+on:
+  workflow_dispatch:
+    inputs:
+      folder:
+        description: 'Folder : The name of the folder where your style will be placed (typically the site name where the style will render)'
+        required: true
+      name:
+        description: 'Script name : A name describing what your style does (typically a string with letters and "-", so no spaces)'
+        required: true
+
+jobs:
+  configure:
+    runs-on: "ubuntu-latest"
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      - name: "Create a new style ${{ inputs.folder }}/${{ inputs.name }}"
+        run: |
+          bash ./manage.sh createcss "${{ inputs.folder }}" "${{ inputs.name }}"
+
+      - name: "Commit"
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "<>"
+          git add .
+          git commit -m "Create a new style ${{ inputs.folder }}/${{ inputs.name }} (from GitHub Actions)"
+          git push

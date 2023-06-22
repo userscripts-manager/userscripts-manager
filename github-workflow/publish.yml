@@ -1,0 +1,46 @@
+name: "Publish user scripts and styles to GitHub Pages"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: "ubuntu-latest"
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      - name: "Set env vars"
+        run: |
+          export_ga() {
+            for _name in "${@}"
+            do
+              local _key="${_name%%=*}"
+              local _value="${_name#*=}"
+              [ "${_key}" == "${_name}" ] && _value="${!_name}"
+              export $_key="${_value}"
+              echo "${_key}=${_value}" >> "${GITHUB_ENV}"
+            done
+          }
+
+          export_ga GITHUB_SHA_SHORT="$(git rev-parse --short HEAD)"
+
+      - name: "Create website resources"
+        run: |
+          bash ./manage.sh publish -v "${{ env.GITHUB_SHA_SHORT }}"
+
+      - name: "Deploy to GitHub Pages"
+        if: "success()"
+        uses: "crazy-max/ghaction-github-pages@v3.1.0"
+        with:
+          target_branch: "gh-pages"
+          build_dir: "dist"
+          commit_message: "Synchronize website to ${{ env.GITHUB_SHA_SHORT }}"
+        env:
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"

@@ -1,0 +1,41 @@
+name: "Configure repository"
+
+on:
+  workflow_dispatch:
+    inputs:
+      author:
+        description: 'Author : The name that will be used by default as the author of the scripts (typically your GitHub name/organisation)'
+        required: true
+      homepage:
+        description: 'Homepage : The homepage of the that will be used by default in the scripts (typically the GitHub repository page of this repository or the Github page assiciated to this repository)'
+        required: true
+      support:
+        description: 'Support URL : The website page that will be used by default in the scripts to provide support (typically the GitHub issues page of this repository)'
+        required: true
+
+jobs:
+  configure:
+    runs-on: "ubuntu-latest"
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      - name: "Create website resources"
+        run: |
+          bash ./manage.sh config -a "${{ inputs.author }}" -h "${{ inputs.homepage }}" -s "${{ inputs.support }}"
+
+      - name: "Commit"
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No changes detected => everything is already configured"
+            exit 0
+          else
+            git config user.name "GitHub Actions Bot"
+            git config user.email "<>"
+            git add .
+            git commit -m "Configure repository (from GitHub Actions)"
+            git push
+          fi

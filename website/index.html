@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <script>
+            const script = document.createElement('script')
+            script.setAttribute('src', 'userscripts.js?'+Math.random())
+            document.head.appendChild(script)
+            const link = document.createElement('link')
+            link.setAttribute('rel', 'stylesheet')
+            link.setAttribute('href', 'website.css?'+Math.random())
+            document.head.appendChild(link)
+        </script>
+    </head>
+</html>
