@@ -50,14 +50,21 @@ This part suppose your are using a unix compatible environnement, like linux, ma
     * In "*Worflow permissions*" section, select "*Read and write persmissions*" and "*Save*"
         * Note that if that if the choice is disabled, it's most probably because the repository is associated with an organisation. You'll have to configure first the organisation with the exact same parameter inside the oraganisation, and then you'll be able to configure it inside the repository.
 * In your newly created repository, go to the tab "*Actions*"
+    * If the *Actions* tab says the actions are disabled, enable them but clicking on the green button "**I understand my workflows, go ahead and enable them**".
     * On the left side select the workflow *Publish user scripts and styles to GitHub Pages*
         * There is blue banner with a button/dropdown named "**Run workflow**". Click on it, and then click the green button "**Run workflow**".
+    * Wait for the job to end
 * In your newly created repository, go to "*Settings*" -> "*Code and automation*" -> "*Pages*"
     * Under **Source**, verify that the choice is "**Deploy from a branch**"
     * Under **Branch**, set **gh-pages** and then Save.
+* On the main page of the repository, locate the "**About**" section on the right of the screen and click on the gear icon
+    * In the "*Edit repository details*" window, locate the checkbox "*Use your github pages website*" and click the link
+    * Click on the green button "**Save changes**"
+    * You web site is now accessible from the "**About**" section.
 
 * Your newly created website is now accessible under the url `https://<yourname>.github.io/userscripts`
     * **Note**: you'll probably see a white page as you haven't yet created some scripts.
+    * You can now create new scripts and styles
 
 ## Other sites
 
