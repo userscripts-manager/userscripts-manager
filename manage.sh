@@ -198,6 +198,7 @@ update() {
     cd "${this_dir}"
 
     ln -f -s "${relative_path}" "${dirname}/"
+    ln -f -s "${relative_dirname}/justfile" "${dirname}"
     mkdir -p "${dirname}/.github/workflows"
     cp -f "${this_script_basedir}/github-workflow/"*.yml "${dirname}/.github/workflows/"
 }
