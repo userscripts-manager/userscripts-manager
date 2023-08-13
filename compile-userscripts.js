@@ -213,7 +213,7 @@ const compileScript = async (basename, content, props, userscripts, outFolder, i
 
     const importContent = await resolveImports(imports, importFolder)
 
-    populateUserscripts(userscripts, `${subPath}${basename}.user.js`, props)
+    populateUserscripts(userscripts, `${subPath}${basename}.user.js`, { ...props, type: 'script' })
 
     const outDir = `${outFolder}/${subPath}`
     const isDirectory = await isDir(outDir)
@@ -262,7 +262,7 @@ const compileStyle = async (basename, content, props, userscripts, outFolder, su
     const { bodyLines, localProps } = parseStyleContent(content)
     props = { ...props, ...localProps, name: basename }
 
-    populateUserscripts(userscripts, `${subPath}${basename}.user.css`, props)
+    populateUserscripts(userscripts, `${subPath}${basename}.user.css`, { ...props, type: 'style' })
 
     const outDir = `${outFolder}/${subPath}`
     const isDirectory = await isDir(outDir)
@@ -287,7 +287,7 @@ const compile = async (inFolder, outFolder, importFolder, pathName, commonProps,
     const directories = []
     const scripts = {}
     const styles = {}
-    
+
     let subPath = ''
     if (commonProps === undefined) {
         commonProps = []
