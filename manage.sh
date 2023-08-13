@@ -122,16 +122,21 @@ publish() {
     dist_dir="${this_dir}/dist"
     tmp_dir="${this_dir}/tmp"
     rm -rf "${dist_dir}" "${tmp_dir}"
-    mkdir -p "${dist_dir}"
-    mkdir -p "${tmp_dir}"
-    echo "{" > "${tmp_dir}/userscripts.json"
-    cd src
-    for script in $(find * | grep -E ".user.js$"); do mkdir -p "${dist_dir}/$(dirname "${script}")"; cp -f "${script}" "${dist_dir}/${script}"; echo "\"${script}\":"; content="$(cat "${script}" | perl -ape 's/\r//g;' | grep -ozP '(?s)// ==UserScript==\n\K.*?(?=\n// ==/UserScript==)' 2>/dev/null | perl -ape 's{^// @([^\s+]*)\s*(.*?)$}{  [\"$1\",\"$2\"],}' | tr -d '\0'; echo "")"; echo "["; echo "${content}"; echo "[\"type\",\"script\"]],"; done >> "${tmp_dir}/userscripts.json"
-    for script in $(find * | grep -E ".user.css$"); do mkdir -p "${dist_dir}/$(dirname "${script}")"; cp -f "${script}" "${dist_dir}/${script}"; echo "\"${script}\":"; content="$(cat "${script}"  | perl -ape 's/\r//g;' | grep -ozP '(?s)/* ==UserStyle==\n\K.*?(?=\n==/UserStyle==)' 2>/dev/null | perl -ape 's{^@([^\s+]*)\s*(.*?)$}{  [\"$1\",\"$2\"],}' | tr -d '\0'; echo "")"; echo "["; echo "${content}"; echo "[\"type\",\"style\"]],"; done >> "${tmp_dir}/userscripts.json"
-    cd ..
-    echo "\"\": null}" >> "${tmp_dir}/userscripts.json"
+
+    node --version > /dev/null 2>&1 || fail "node is not installed"
+    node "${this_script_basedir}/compile-userscripts.js"
+
+    # mkdir -p "${dist_dir}"
+    # mkdir -p "${tmp_dir}"
+    # echo "{" > "${tmp_dir}/userscripts.json"
+    # cd src
+    # for script in $(find * | grep -E ".user.js$"); do mkdir -p "${dist_dir}/$(dirname "${script}")"; cp -f "${script}" "${dist_dir}/${script}"; echo "\"${script}\":"; content="$(cat "${script}" | perl -ape 's/\r//g;' | grep -ozP '(?s)// ==UserScript==\n\K.*?(?=\n// ==/UserScript==)' 2>/dev/null | perl -ape 's{^// @([^\s+]*)\s*(.*?)$}{  [\"$1\",\"$2\"],}' | tr -d '\0'; echo "")"; echo "["; echo "${content}"; echo "[\"type\",\"script\"]],"; done >> "${tmp_dir}/userscripts.json"
+    # for script in $(find * | grep -E ".user.css$"); do mkdir -p "${dist_dir}/$(dirname "${script}")"; cp -f "${script}" "${dist_dir}/${script}"; echo "\"${script}\":"; content="$(cat "${script}"  | perl -ape 's/\r//g;' | grep -ozP '(?s)/* ==UserStyle==\n\K.*?(?=\n==/UserStyle==)' 2>/dev/null | perl -ape 's{^@([^\s+]*)\s*(.*?)$}{  [\"$1\",\"$2\"],}' | tr -d '\0'; echo "")"; echo "["; echo "${content}"; echo "[\"type\",\"style\"]],"; done >> "${tmp_dir}/userscripts.json"
+    # cd ..
+    # echo "\"\": null}" >> "${tmp_dir}/userscripts.json"
+
     echo "{\"version\":\"${version}\"}" > "${dist_dir}/version.json"
-    cat "${tmp_dir}/userscripts.json" | jq -c "" | perl -ape 's{,null]}{]}g; s/,"":null}/}/g;' > "${dist_dir}/userscripts.json"
+    # cat "${tmp_dir}/userscripts.json" | jq -c "" | perl -ape 's{,null]}{]}g; s/,"":null}/}/g;' > "${dist_dir}/userscripts.json"
     cp -f "${this_script_basedir}/website/index.html" "${this_script_basedir}/website/userscripts.js" "${dist_dir}/"
     [ -f "${this_dir}/website.css" ] && cp -f "${this_dir}/website.css" "${dist_dir}/"
     touch "${dist_dir}/.nojekyll"
