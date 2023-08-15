@@ -14,7 +14,8 @@ support_explicit="0"
 
 force="0"
 
-common_file="${this_dir}/src/common.props.json"
+src_dir="${this_dir}/src"
+common_file="${src_dir}/common.props.json"
 
 read_common_file() {
     propname="${1}"
@@ -39,6 +40,7 @@ get_support() {
 
 ensure_common() {
     [ -f "${common_file}" ] || {
+        mkdir -p "${src_dir}"
         echo '{' > "${common_file}"
         echo '    "namespace": "'"${homepage}"'",' >> "${common_file}"
         echo '    "author": "'"${author}"'",' >> "${common_file}"
@@ -49,7 +51,7 @@ ensure_common() {
         echo '    ]' >> "${common_file}"
         echo '}' >> "${common_file}"
     }
-    [ -f "${this_dir}/src/website.css" ] || echo "/* Put here the custom css content you want for your generated user scripts/style website */" > "${this_dir}/src/website.css"
+    [ -f "${src_dir}/website.css" ] || echo "/* Put here the custom css content you want for your generated user scripts/style website */" > "${src_dir}/website.css"
 }
 
 help() {
@@ -96,7 +98,7 @@ error=""
 
 create_script() {
     ensure_common
-    scriptfilename="${this_dir}/src/${dirname}/${scriptname}.user.js"
+    scriptfilename="${src_dir}/${dirname}/${scriptname}.user.js"
     [ -f "${scriptfilename}" ] && [ "${force}" == "0" ] && fail "Script ${scriptfilename} already exists"
     mkdir -p "$(dirname "${scriptfilename}")"
     echo "// ==UserScript==" > "${scriptfilename}"
@@ -110,7 +112,7 @@ create_script() {
 
 create_style() {
     ensure_common
-    stylefilename="${this_dir}/src/${dirname}/${scriptname}.user.css"
+    stylefilename="${src_dir}/${dirname}/${scriptname}.user.css"
     [ -f "${stylefilename}" ] && [ "${force}" == "0" ] && fail "Style ${stylefilename} already exists"
     mkdir -p "$(dirname "${stylefilename}")"
     echo "/* ==UserStyle==" > "${stylefilename}"
@@ -134,7 +136,7 @@ publish() {
 
     echo "{\"version\":\"${version}\"}" > "${dist_dir}/version.json"
     cp -f "${this_script_basedir}/website/index.html" "${this_script_basedir}/website/userscripts.js" "${dist_dir}/"
-    [ -f "${this_dir}/src/website.css" ] && cp -f "${this_dir}/src/website.css" "${dist_dir}/"
+    [ -f "${src_dir}/website.css" ] && cp -f "${src_dir}/website.css" "${dist_dir}/"
     touch "${dist_dir}/.nojekyll"
 }
 
