@@ -145,6 +145,7 @@ const createPage = (userscripts, version) => {
     addStyle('th,td { padding: 0.6em; }')
     addStyle('th,td,p,div,span,h1,h2,h3,body { font-family: "Calibri","sans-serif"; }')
     addStyle('.version { font-size: 0.5em }')
+    addStyle('tr:hover { background-color: #f0f0f0; }')
 
     sectionInfos = [
         { sectionName: 'Userscripts', column: 'Script name', filterType: 'script' },
