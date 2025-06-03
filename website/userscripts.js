@@ -136,6 +136,51 @@ const getProperty = (userscript, name, defaultValue) => {
 }
 
 /**
+ * Get a search pattern for a userscript (basically all properties values + the path)
+ *
+ * @param {string} userscript A userscript item
+ * @param {string} path The path of the userscript
+ * @return {string}
+ */
+const getSearchPattern = (userscript, path) => {
+    return [ ...userscript.map(([key, value])=>value), path ].join(' ')
+}
+
+const filtrableLines = []
+
+/**
+ * Return true is a filtrableLine match the textParts
+ *
+ * @param {string[]} textParts the parts of the text to search
+ * @param {FiltrableLine} filtrableLine a filtrableLine struct
+ * @return {Boolean}
+ */
+const isTextPartMatchFiltrableLine = (textParts, filtrableLine) => {
+    if (textParts.length == 0) {
+        return true
+    }
+    return textParts.map((textPart) => filtrableLine.searchPattern.indexOf(textPart) > 0).reduce((x,y)=>x && y)
+}
+
+/**
+ * Filter all the lines using the search field
+ */
+const onSearchFieldChanged = (e) => {
+    const element = e.target
+    const text = element.value
+
+    const textParts = text.split(' ').filter((x) => x.length > 0)
+
+    filtrableLines.forEach((filtrableLine) => {
+        if (isTextPartMatchFiltrableLine(textParts, filtrableLine)) {
+            filtrableLine.line.classList.remove('filtered-line')
+        } else {
+            filtrableLine.line.classList.add('filtered-line')
+        }
+    })
+}
+
+/**
  * Create a page given a userscripts structure
  * @param {{[path: string]: {[property: string]:string}[]}} userscripts 
  * @param {string} version
@@ -146,11 +191,15 @@ const createPage = (userscripts, version) => {
     addStyle('th,td,p,div,span,h1,h2,h3,body { font-family: "Calibri","sans-serif"; }')
     addStyle('.version { font-size: 0.5em }')
     addStyle('tr:hover { background-color: #f0f0f0; }')
+    addStyle('.search-input { width: 100%; }')
+    addStyle('.filtered-line { display: none; }')
 
     sectionInfos = [
         { sectionName: 'Userscripts', column: 'Script name', filterType: 'script' },
         { sectionName: 'Userstyles', column: 'Style name', filterType: 'style' },
     ]
+
+    let searchElement = null
 
     createElement('title', { parent: document.head, text: 'Userscripts' });
 
@@ -161,6 +210,21 @@ const createPage = (userscripts, version) => {
     createElement('table', {
         parent: document.body,
         children: [
+            createElement('tr',{
+                classNames: ['search-line'],
+                children: createElement('td', {
+                    classNames: ['search-cell'],
+                    properties: {
+                        colSpan: '3'
+                    },
+                    children: createElement('input', {
+                        classNames: ['search-input'],
+                        onCreated: (element) => {
+                            searchElement = element
+                        },
+                    }),
+                }),
+            }),
             ...sectionInfos.map((sectionInfo) => {
                 const { sectionName, column, filterType } = sectionInfo;
 
@@ -205,7 +269,11 @@ const createPage = (userscripts, version) => {
                                 classNames: ['data-cell', 'link-cell'],
                             }),
                             createElement('td', { text: getProperty(userscripts[path], 'version', '-'), classNames: ['data-cell', 'version-cell' ], }),
-                        ]
+                        ],
+                        onCreated: (line) => {
+                            const searchPattern = getSearchPattern(userscripts[path], path)
+                            filtrableLines.push({ line, searchPattern })
+                        },
                     }))
                 ]
             }),
@@ -215,6 +283,10 @@ const createPage = (userscripts, version) => {
         parent: document.body,
         classNames: ['page-footer'],
     })
+
+    searchElement.addEventListener("input", onSearchFieldChanged)
+    searchElement.focus()
+    searchElement.addEventListener("onfocusout", () => searchElement.focus())
 }
 
 const start = async () => {
