@@ -6,36 +6,15 @@ Sources:
 * https://github.com/userscripts-manager/userscripts-manager
 * https://gitlab.com/userscripts-manager/userscripts-manager
 
-<details>
-    <summary>Cloning on github</summary>
+Template repositories to clone:
+* https://github.com/userscripts-manager/userscripts
+* https://gitlab.com/userscripts-manager/userscripts
 
-    <h1>Create a new userscript repository by cloning</h1>
-
-    <ul>
-        <li>Clone the repository <a href="https://github.com/userscripts-manager/userscripts">https://github.com/userscripts-manager/userscripts</a></li>
-        <li><a href="#configure-your-newly-created-userscript-repository">Configure your repository</a> (see the dedicated section)</li>
-        <li><ul>
-            <li>While your repository is not fully configured, actions may fail, it's not a problem as long as it doesn't fail anymore when the repository is fully configured</li>
-        </ul></li>
-    </ul>
-
-</details>
-
-<details>
-    <summary>Cloning on gitlab</summary>
-
-    <h1>Create a new userscript repoitory by cloning</h1>
-
-    <h1>Create a new userscript repository by cloning</h1>
-
-    <ul>
-        <li>Clone the repository <a href="https://gitlab.com/userscripts-manager/userscripts-manager">https://gitlab.com/userscripts-manager/userscripts-manager</a></li>
-        <li><a href="#configure-your-newly-created-userscript-repository">Configure your repository</a> (see the dedicated section)</li>
-        <li><ul>
-            <li>While your repository is not fully configured, actions may fail, it's not a problem as long as it doesn't fail anymore when the repository is fully configured</li>
-        </ul></li>
-    </ul>
-</details>
+# Create a new userscript repository by cloning
+ 
+* Clone the repository https://github.com/userscripts-manager/userscripts on github or https://gitlab.com/userscripts-manager/userscripts on gitlab 
+* [Configure your repository](#configure-your-newly-created-userscript-repository) (see the dedicated section)
+    * While your repository is not fully configured, actions may fail, it's not a problem as long as it doesn't fail anymore when the repository is fully configured
 
 # Create a new userscript repository from scratch
 
