@@ -2,15 +2,40 @@
 
 The goal is to provide everything related to creating a website from a repository, using github action (when hosted on github, but some other hosting facilties may be added in the future), creating new script (or new style) from scrtach, handling versionning, etc.
 
-Note: The tool is right now in alpha stage. While there are some use cases that works, it's not fully operational.
+Sources:
+* https://github.com/userscripts-manager/userscripts-manager
+* https://gitlab.com/userscripts-manager/userscripts-manager
 
-# Create a new userscript repository by cloning
+<details>
+    <summary>Cloning on github</summary>
 
-Note: This way of creating a repository isn't working yet as the repository to clone doesn't exists yet.
+    <h1>Create a new userscript repository by cloning</h1>
 
-* Clone the repository https://github.com/userscripts-manager/userscripts ( !Warning! : The repository doesn't exists yet )
-* [Configure your repository](#configure-your-newly-created-userscript-repository) (see the dedicated section)
-    * While your repository is not fully configured, actions may fail, it's not a problem as long as it doesn't fail anymore when the repository is fully configured
+    <ul>
+        <li>Clone the repository <a href="https://github.com/userscripts-manager/userscripts">https://github.com/userscripts-manager/userscripts</a></li>
+        <li><a href="#configure-your-newly-created-userscript-repository">Configure your repository</a> (see the dedicated section)</li>
+        <li><ul>
+            <li>While your repository is not fully configured, actions may fail, it's not a problem as long as it doesn't fail anymore when the repository is fully configured</li>
+        </ul></li>
+    </ul>
+
+</details>
+
+<details>
+    <summary>Cloning on gitlab</summary>
+
+    <h1>Create a new userscript repoitory by cloning</h1>
+
+    <h1>Create a new userscript repository by cloning</h1>
+
+    <ul>
+        <li>Clone the repository <a href="https://gitlab.com/userscripts-manager/userscripts-manager">https://gitlab.com/userscripts-manager/userscripts-manager</a></li>
+        <li><a href="#configure-your-newly-created-userscript-repository">Configure your repository</a> (see the dedicated section)</li>
+        <li><ul>
+            <li>While your repository is not fully configured, actions may fail, it's not a problem as long as it doesn't fail anymore when the repository is fully configured</li>
+        </ul></li>
+    </ul>
+</details>
 
 # Create a new userscript repository from scratch
 
@@ -66,9 +91,21 @@ This part suppose your are using a unix compatible environnement, like linux, ma
     * **Note**: you'll probably see a white page as you haven't yet created some scripts.
     * You can now create new scripts and styles
 
+## gitlab
+
+* By default, gitlab doesn't need any configuration to run the actions.
+* By default, gitlab doesn't need any configuration to publish pages.
+* By default, all your pages will be private, so you need to change the visibility of your pages if you want them to be public (if not, your userscripts will only be visible by people who have access to your repo, which is ideal for a private userscript repo).
+    * Go to your repository
+    * Click on the "*Settings*" tab
+    * Click on "*General*" in the left menu
+    * Scroll down to the "*Visibility, project features, permissions*" section
+    * In the "*Pages*" section, select "*Everyone*" or "*Only project members*" depending on your needs
+    * Click on the button "*Save changes*"
+
 ## Other sites
 
-Other git hosting repositories are not yet supported. You can host your repo on those sites, but no CI will work, and no web site will be automaticlly generated yet.
+Other git hosting repositories are not yet supported. You can host your repo on those sites, but no CI will work, and no web site will be automaticlly generated yet, but you can still write CI/CD yourself to do so.
 
 # Create a new script
 
@@ -89,6 +126,10 @@ To edit you script from within the browser, you can just:
 * Once commited, the changes will automatically start a workflow to generate a new version of the website associated to your repository, and that's all.
 
 Remember to change the version of your script each time you change a script or else extensions won't update your script.
+
+## Using gitlab actions
+
+Not available yet.
 
 ## Using command line and local IDE
 
