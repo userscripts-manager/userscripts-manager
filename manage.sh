@@ -182,6 +182,7 @@ install() {
     ln -f -s "${relative_path}" "${dirname}/"
     mkdir -p "${dirname}/.github/workflows"
     cp -f "${this_script_basedir}/github-workflow/"*.yml "${dirname}/.github/workflows/"
+    cp -f "${this_script_basedir}/gitlab-workflow/"gitlab-ci.yml "${dirname}/.gitlab-ci.yml"
 }
 
 update() {
@@ -197,6 +198,7 @@ update() {
     ln -f -s "${relative_dirname}/justfile" "${dirname}"
     mkdir -p "${dirname}/.github/workflows"
     cp -f "${this_script_basedir}/github-workflow/"*.yml "${dirname}/.github/workflows/"
+    cp -f "${this_script_basedir}/gitlab-workflow/"gitlab-ci.yml "${dirname}/.gitlab-ci.yml"
 }
 
 while [ "${#}" -gt "0" ]

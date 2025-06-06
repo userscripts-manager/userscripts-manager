@@ -1,0 +1,17 @@
+default:
+  image: "node:latest"
+
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+
+pages:
+  script:
+    - ./manage.sh publish
+  pages: # specifies that this is a Pages job
+    publish: dist
+  artifacts:
+    paths:
+      - dist
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  environment: production
