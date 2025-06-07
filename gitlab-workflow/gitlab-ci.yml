@@ -9,7 +9,7 @@ pages:
     - apt update -y
     - apt install -y jq
   script:
-    - ./manage.sh publish
+    - ./manage.sh publish -v "$CI_COMMIT_SHORT_SHA"
   pages: # specifies that this is a Pages job
     publish: dist
   artifacts:
