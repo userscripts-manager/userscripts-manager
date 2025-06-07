@@ -5,6 +5,9 @@ variables:
   GIT_SUBMODULE_STRATEGY: recursive
 
 pages:
+  before_script:
+    - apt update -y
+    - apt install -y jq
   script:
     - ./manage.sh publish
   pages: # specifies that this is a Pages job
