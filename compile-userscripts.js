@@ -39,11 +39,41 @@ const ensureKey = (obj, key, defaultValue) => {
 }
 const mergeProps = (props) => props.reduce((acc, prop) => ({ ...acc, ...prop }), {})
 
+const parseAtLine = (line, imports, grants) => {
+    const match = line.match(/^\s*\/\/\s*@(\w+)\{(.*)\}\s*$/)
+    if (match !== null) {
+        const [, keyword, value] = match
+        switch (keyword) {
+            case 'import':
+                imports.push(value)
+                return true
+            case 'grant':
+                grants.push(value)
+                return true
+        }
+    }
+    return false
+}
+
+const updateProps = (props, key, value) => {
+    if (propsTable.includes(key)) {
+        if (props[key] === undefined) {
+            props[key] = []
+        }
+        if (!props[key].includes(value)) {
+            props[key] = [...props[key], value]
+        }
+    } else {
+        props[key] = value
+    }
+}
+
 const parseScriptContent = (content) => {
     let isHeader = false
     const localProps = {}
     let bodyLines = []
     const imports = []
+    const grants = []
     for (let line of content.split('\n')) {
         line = line.replace('\r', '')
         if (line.startsWith('// ==UserScript==')) {
@@ -55,21 +85,10 @@ const parseScriptContent = (content) => {
                 const match = line.match(/^\/\/\s*@(\w+)\s+(.*)\s*$/)
                 if (match !== null) {
                     const [, key, value] = match
-                    if (propsTable.includes(key)) {
-                        if (localProps[key] === undefined) {
-                            localProps[key] = []
-                        }
-                        localProps[key].push(value)
-                    } else {
-                        localProps[key] = value
-                    }
+                    updateProps(localProps, key, value)
                 }
             } else {
-                const match = line.match(/^\s*\/\/\s*@import\{(.*)\}\s*$/)
-                if (match !== null) {
-                    const [, value] = match
-                    imports.push(value)
-                } else {
+                if (!parseAtLine(line, imports, grants)) {
                     bodyLines.push(line)
                 }
             }
@@ -78,7 +97,7 @@ const parseScriptContent = (content) => {
     const { begin, end } = bodyLines.reduce((acc, line, index) => (line === '' ? acc : { begin: acc.begin == undefined ? index : acc.begin, end: index }), { begin: undefined, end: 0 })
     bodyLines = bodyLines.slice(begin, end + 1)
 
-    return { imports, bodyLines, localProps }
+    return { imports, grants, bodyLines, localProps }
 }
 
 const parseStyleContent = (content) => {
@@ -96,14 +115,7 @@ const parseStyleContent = (content) => {
                 const match = line.match(/^\s*@(\w+)\s+(.*)\s*$/)
                 if (match !== null) {
                     const [, key, value] = match
-                    if (propsTable.includes(key)) {
-                        if (localProps[key] === undefined) {
-                            localProps[key] = []
-                        }
-                        localProps[key].push(value)
-                    } else {
-                        localProps[key] = value
-                    }
+                    updateProps(localProps, key, value)
                 }
             } else {
                 bodyLines.push(line)
@@ -117,7 +129,7 @@ const parseStyleContent = (content) => {
     return { bodyLines, localProps }
 }
 
-const resolveImports = async (imports, importFolder, importContent, parsed) => {
+const resolveImports = async (imports, props, importFolder, importContent, parsed) => {
     if (importContent === undefined) {
         importContent = {}
     }
@@ -127,9 +139,10 @@ const resolveImports = async (imports, importFolder, importContent, parsed) => {
     for (const importName of imports) {
         const content = await readFile(`${importFolder}/${importName}.js`)
         if (parsed[importName] === undefined) {
-            const { imports: subImports, bodyLines } = parseScriptContent(content)
+            const { imports: subImports, grants: subGrants, bodyLines } = parseScriptContent(content)
             parsed[importName] = true
-            await resolveImports(subImports, importFolder, importContent, parsed)
+            await resolveImports(subImports, props, importFolder, importContent, parsed)
+            subGrants.forEach((grant) => updateProps(props, 'grant', grant))
             importContent[importName] = bodyLines
         }
     }
@@ -203,15 +216,21 @@ const populateUserscripts = (userscripts, path, props) => {
     }
 }
 
-const compileScript = async (basename, content, props, userscripts, outFolder, importFolder, subPath) => {
-    const { imports, bodyLines, localProps } = parseScriptContent(content)
-    props = { ...props, ...localProps, name: basename }
+const compileScript = async (basename, content, globalProps, userscripts, outFolder, importFolder, subPath) => {
+    const { imports, grants, bodyLines, localProps } = parseScriptContent(content)
+    props = { ...globalProps, ...localProps, name: basename }
+    grants.forEach((grant) => updateProps(props, 'grant', grant))
+
     if (props['@import'] !== undefined) {
         props['@import'].forEach((importName) => imports.push(importName))
         delete props['@import']
     }
 
-    const importContent = await resolveImports(imports, importFolder)
+    const importContent = await resolveImports(imports, props, importFolder)
+
+    if (props['grant'] !== undefined && props['grant'].includes('none') && props['grant'].length > 1) {
+        props['grant'].splice(props['grant'].indexOf('none'), 1)
+    }
 
     populateUserscripts(userscripts, `${subPath}${basename}.user.js`, { ...props, type: 'script' })
 
