@@ -39,7 +39,7 @@ const ensureKey = (obj, key, defaultValue) => {
 }
 const mergeProps = (props) => props.reduce((acc, prop) => ({ ...acc, ...prop }), {})
 
-const parseAtLine = (line, imports, grants) => {
+const parseAtLine = (line, imports, grants, requires) => {
     const match = line.match(/^\s*\/\/\s*@(\w+)\{(.*)\}\s*$/)
     if (match !== null) {
         const [, keyword, value] = match
@@ -49,6 +49,9 @@ const parseAtLine = (line, imports, grants) => {
                 return true
             case 'grant':
                 grants.push(value)
+                return true
+            case 'require':
+                requires.push(value)
                 return true
         }
     }
@@ -74,6 +77,7 @@ const parseScriptContent = (content) => {
     let bodyLines = []
     const imports = []
     const grants = []
+    const requires = []
     for (let line of content.split('\n')) {
         line = line.replace('\r', '')
         if (line.startsWith('// ==UserScript==')) {
@@ -88,7 +92,7 @@ const parseScriptContent = (content) => {
                     updateProps(localProps, key, value)
                 }
             } else {
-                if (!parseAtLine(line, imports, grants)) {
+                if (!parseAtLine(line, imports, grants, requires)) {
                     bodyLines.push(line)
                 }
             }
@@ -97,7 +101,7 @@ const parseScriptContent = (content) => {
     const { begin, end } = bodyLines.reduce((acc, line, index) => (line === '' ? acc : { begin: acc.begin == undefined ? index : acc.begin, end: index }), { begin: undefined, end: 0 })
     bodyLines = bodyLines.slice(begin, end + 1)
 
-    return { imports, grants, bodyLines, localProps }
+    return { imports, grants, requires, bodyLines, localProps }
 }
 
 const parseStyleContent = (content) => {
@@ -139,10 +143,11 @@ const resolveImports = async (imports, props, importFolder, importContent, parse
     for (const importName of imports) {
         const content = await readFile(`${importFolder}/${importName}.js`)
         if (parsed[importName] === undefined) {
-            const { imports: subImports, grants: subGrants, bodyLines } = parseScriptContent(content)
+            const { imports: subImports, grants: subGrants, requires: subRequires, bodyLines } = parseScriptContent(content)
             parsed[importName] = true
             await resolveImports(subImports, props, importFolder, importContent, parsed)
             subGrants.forEach((grant) => updateProps(props, 'grant', grant))
+            subRequires.forEach((require) => updateProps(props, 'require', require))
             importContent[importName] = bodyLines
         }
     }
@@ -217,9 +222,10 @@ const populateUserscripts = (userscripts, path, props) => {
 }
 
 const compileScript = async (basename, content, globalProps, userscripts, outFolder, importFolder, subPath) => {
-    const { imports, grants, bodyLines, localProps } = parseScriptContent(content)
+    const { imports, grants, requires, bodyLines, localProps } = parseScriptContent(content)
     props = { ...globalProps, ...localProps, name: basename }
     grants.forEach((grant) => updateProps(props, 'grant', grant))
+    requires.forEach((require) => updateProps(props, 'require', require))
 
     if (props['@import'] !== undefined) {
         props['@import'].forEach((importName) => imports.push(importName))
