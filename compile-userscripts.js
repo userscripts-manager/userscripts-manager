@@ -3,6 +3,25 @@ const fs = require('fs/promises')
 const propsTable = ['grant', 'antifeature', 'require', 'resource', 'include', 'match', 'connect']
 keyOrders = ['name', 'namespace', 'version', 'description', 'author', 'homepage', 'supportURL', 'match', 'icon', 'grant']
 
+const shell = async (command) => {
+    const { exec } = require('child_process')
+    return new Promise((resolve, reject) => {
+        exec(command, (error, stdout, stderr) => {
+            if (error) {
+                reject(error)
+            } else {
+                resolve({ stdout, stderr })
+            }
+        })
+    })
+}
+
+const getGitVersion = async (files) => {
+    const command = `git log -1 --format="%cs-%h" -- ${files.map(f => `"${f}"`).join(' ')}`
+    const { stdout, stderr } = await shell(command)
+    return stdout.trim()
+}
+
 const display = (obj, ...objs) => {
     result = JSON.stringify(obj, null, 4)
     if (objs !== undefined) {
@@ -135,20 +154,25 @@ const parseStyleContent = (content) => {
 
 const resolveImports = async (imports, props, importFolder, importContent, parsed) => {
     if (importContent === undefined) {
-        importContent = {}
+        importContent = {
+            filenames: new Set(),
+            files: {}
+        }
     }
     if (parsed === undefined) {
         parsed = {}
     }
     for (const importName of imports) {
-        const content = await readFile(`${importFolder}/${importName}.js`)
+        const filename = `${importFolder}/${importName}.js`
+        const content = await readFile(filename)
         if (parsed[importName] === undefined) {
             const { imports: subImports, grants: subGrants, requires: subRequires, bodyLines } = parseScriptContent(content)
             parsed[importName] = true
             await resolveImports(subImports, props, importFolder, importContent, parsed)
             subGrants.forEach((grant) => updateProps(props, 'grant', grant))
             subRequires.forEach((require) => updateProps(props, 'require', require))
-            importContent[importName] = bodyLines
+            importContent.files[importName] = bodyLines
+            importContent.filenames.add(filename)
         }
     }
     return importContent
@@ -221,7 +245,7 @@ const populateUserscripts = (userscripts, path, props) => {
     }
 }
 
-const compileScript = async (basename, content, globalProps, userscripts, outFolder, importFolder, subPath) => {
+const compileScript = async (basename, content, filenames, globalProps, userscripts, outFolder, importFolder, subPath) => {
     const { imports, grants, requires, bodyLines, localProps } = parseScriptContent(content)
     props = { ...globalProps, ...localProps, name: basename }
     grants.forEach((grant) => updateProps(props, 'grant', grant))
@@ -236,6 +260,10 @@ const compileScript = async (basename, content, globalProps, userscripts, outFol
 
     if (props['grant'] !== undefined && props['grant'].includes('none') && props['grant'].length > 1) {
         props['grant'].splice(props['grant'].indexOf('none'), 1)
+    }
+
+    if (props['version'] === undefined) {
+        props['version'] = await getGitVersion([...filenames, ...Array.from(importContent.filenames)])
     }
 
     populateUserscripts(userscripts, `${subPath}${basename}.user.js`, { ...props, type: 'script' })
@@ -259,7 +287,7 @@ const compileScript = async (basename, content, globalProps, userscripts, outFol
 
     await writeLine(handle, '')
 
-    for (const [importName, importLines] of Object.entries(importContent)) {
+    for (const [importName, importLines] of Object.entries(importContent.files)) {
         await writeLine(handle, '')
         await writeLine(handle, `// @imported_begin{${importName}}`)
         for (const line of importLines) {
@@ -283,11 +311,15 @@ const compileScript = async (basename, content, globalProps, userscripts, outFol
     await close(handle)
 }
 
-const compileStyle = async (basename, content, props, userscripts, outFolder, subPath) => {
+const compileStyle = async (basename, content, filenames, props, userscripts, outFolder, subPath) => {
     const { bodyLines, localProps } = parseStyleContent(content)
     props = { ...props, ...localProps, name: basename }
 
     populateUserscripts(userscripts, `${subPath}${basename}.user.css`, { ...props, type: 'style' })
+
+    if (props['version'] === undefined) {
+        props['version'] = await getGitVersion([...filenames])
+    }
 
     const outDir = `${outFolder}/${subPath}`
     const isDirectory = await isDir(outDir)
@@ -340,30 +372,34 @@ const compile = async (inFolder, outFolder, importFolder, pathName, commonProps,
             commonProps.push(await readJson(inFile))
         } else if (file.endsWith('.user.js')) {
             const basename = removeEnd(file, '.user.js')
-            ensureKey(scripts, basename, {}).content = await readFile(inFile)
+            ensureKey(scripts, basename, {filenames: new Set()}).content = await readFile(inFile)
+            scripts[basename].filenames.add(inFile)
         } else if (file.endsWith('.props.json')) {
             const basename = removeEnd(file, '.props.json')
-            ensureKey(scripts, basename, {}).props = await readJson(inFile)
+            ensureKey(scripts, basename, {filenames: new Set()}).props = await readJson(inFile)
+            scripts[basename].filenames.add(inFile)
         } else if (file.endsWith('.user.css')) {
             const basename = removeEnd(file, '.user.css')
-            ensureKey(styles, basename, {}).content = await readFile(inFile)
+            ensureKey(styles, basename, {filenames: new Set()}).content = await readFile(inFile)
+            styles[basename].filenames.add(inFile)
         } else if (file.endsWith('.props.json')) {
             const basename = removeEnd(file, '.props.json')
-            ensureKey(styles, basename, {}).props = await readJson(inFile)
+            ensureKey(styles, basename, {filenames: new Set()}).props = await readJson(inFile)
+            styles[basename].filenames.add(inFile)
         }
 
     }
     for (const directory of directories) {
         await compile(inFolder, outFolder, importFolder, `${subPath}${directory}`, commonProps, userscripts)
     }
-    for (const [basename, { content, props }] of Object.entries(scripts)) {
+    for (const [basename, { content, props, filenames }] of Object.entries(scripts)) {
         if (content !== undefined) {
-            await compileScript(basename, content, mergeProps([...commonProps, props]), userscripts, outFolder, importFolder, subPath)
+            await compileScript(basename, content, filenames, mergeProps([...commonProps, props]), userscripts, outFolder, importFolder, subPath)
         }
     }
-    for (const [basename, { content, props }] of Object.entries(styles)) {
+    for (const [basename, { content, props, filenames }] of Object.entries(styles)) {
         if (content !== undefined) {
-            await compileStyle(basename, content, mergeProps([...commonProps, props]), userscripts, outFolder, subPath)
+            await compileStyle(basename, content, filenames, mergeProps([...commonProps, props]), userscripts, outFolder, subPath)
         }
     }
     if (subPath === '') {
