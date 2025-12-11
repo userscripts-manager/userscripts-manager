@@ -266,6 +266,10 @@ const compileScript = async (basename, content, filenames, globalProps, userscri
         props['version'] = await getGitVersion([...filenames, ...Array.from(importContent.filenames)])
     }
 
+    if (props['description'] === undefined) {
+        props['description'] = props['name']
+    }
+
     populateUserscripts(userscripts, `${subPath}${basename}.user.js`, { ...props, type: 'script' })
 
     const outDir = `${outFolder}/${subPath}`
@@ -315,11 +319,15 @@ const compileStyle = async (basename, content, filenames, props, userscripts, ou
     const { bodyLines, localProps } = parseStyleContent(content)
     props = { ...props, ...localProps, name: basename }
 
-    populateUserscripts(userscripts, `${subPath}${basename}.user.css`, { ...props, type: 'style' })
-
     if (props['version'] === undefined) {
         props['version'] = await getGitVersion([...filenames])
     }
+
+    if (props['description'] === undefined) {
+        props['description'] = props['name']
+    }
+
+    populateUserscripts(userscripts, `${subPath}${basename}.user.css`, { ...props, type: 'style' })
 
     const outDir = `${outFolder}/${subPath}`
     const isDirectory = await isDir(outDir)
