@@ -18,7 +18,11 @@ const shell = async (command) => {
 
 const getGitVersion = async (files) => {
     const command = `git log -1 --format="%cs-%h" -- ${files.map(f => `"${f}"`).join(' ')}`
+    console.log(`Executing: ${command}`)
     const { stdout, stderr } = await shell(command)
+    console.log(`stdout: ${stdout}`)
+    console.log(`stderr: ${stderr}`)
+    console.log('-------------------')
     return stdout.trim()
 }
 
