@@ -17,12 +17,18 @@ const shell = async (command) => {
 }
 
 const getGitVersion = async (files) => {
-    const command = `git log -1 --format="%cs-%h" -- ${files.map(f => `"${f}"`).join(' ')}`
+    const command = `git log -1 --date='format-local:%Y%m%dT-%H%M%S' --format="%cd-%h" -- ${files.map(f => `"${f}"`).join(' ')}`
     console.log(`Executing: ${command}`)
     const { stdout, stderr } = await shell(command)
     console.log(`stdout: ${stdout}`)
     console.log(`stderr: ${stderr}`)
     console.log('-------------------')
+    const command2 = `git log --date='format-local:%Y%m%dT-%H%M%S' --format="%cd-%h %B" ${files.map(f => `"${f}"`).join(' ')}`
+    console.log(`Executing: ${command2}`)
+    const { stdout: stdout2, stderr: stderr2 } = await shell(command2)
+    console.log(`stdout: ${stdout2}`)
+    console.log(`stderr: ${stderr2}`)
+    console.log('===================')
     return stdout.trim()
 }
 
