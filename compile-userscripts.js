@@ -17,7 +17,7 @@ const shell = async (command) => {
 }
 
 const getGitVersion = async (files) => {
-    const command = `git log -1 --format="%cs-%h" -- ${files.map(f => `"${f}"`).join(' ')}`
+    const command = `git log -1 --date='format-local:%Y%m%d-%H%M%S' --format="%cd-%h" -- ${files.map(f => `"${f}"`).join(' ')}`
     const { stdout, stderr } = await shell(command)
     return stdout.trim()
 }
