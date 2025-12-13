@@ -245,6 +245,21 @@ const populateUserscripts = (userscripts, path, props) => {
     }
 }
 
+const defineDefaultProps = async (props, filenames) => {
+    if (props['version'] === undefined) {
+        props['version'] = await getGitVersion([...filenames])
+    }
+
+    if (props['description'] === undefined) {
+        props['description'] = props['name']
+    }
+
+    if (props['iconFromDomain'] !== undefined && props['icon'] === undefined) {
+        props['icon'] = `https://www.google.com/s2/favicons?sz=64&domain=${props['iconFromDomain']}`
+        delete props['iconFromDomain']
+    }
+}
+
 const compileScript = async (basename, content, filenames, globalProps, userscripts, outFolder, importFolder, subPath) => {
     const { imports, grants, requires, bodyLines, localProps } = parseScriptContent(content)
     props = { ...globalProps, ...localProps, name: basename }
@@ -262,13 +277,7 @@ const compileScript = async (basename, content, filenames, globalProps, userscri
         props['grant'].splice(props['grant'].indexOf('none'), 1)
     }
 
-    if (props['version'] === undefined) {
-        props['version'] = await getGitVersion([...filenames, ...Array.from(importContent.filenames)])
-    }
-
-    if (props['description'] === undefined) {
-        props['description'] = props['name']
-    }
+    await defineDefaultProps(props, [...filenames, ...Array.from(importContent.filenames)])
 
     populateUserscripts(userscripts, `${subPath}${basename}.user.js`, { ...props, type: 'script' })
 
@@ -319,13 +328,7 @@ const compileStyle = async (basename, content, filenames, props, userscripts, ou
     const { bodyLines, localProps } = parseStyleContent(content)
     props = { ...props, ...localProps, name: basename }
 
-    if (props['version'] === undefined) {
-        props['version'] = await getGitVersion([...filenames])
-    }
-
-    if (props['description'] === undefined) {
-        props['description'] = props['name']
-    }
+    await defineDefaultProps(props, filenames)
 
     populateUserscripts(userscripts, `${subPath}${basename}.user.css`, { ...props, type: 'style' })
 
