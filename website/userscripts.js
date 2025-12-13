@@ -264,7 +264,7 @@ const createPage = (userscripts, version) => {
                             createElement('td', { text: getProperty(userscripts[path], 'name', '-'), classNames: ['data-cell', 'name-cell' ], }),
                             createElement('td', {
                                 children: [
-                                    createElement('a', { text: path, properties: { href: path } })
+                                    createElement('a', { text: path, properties: { href: path + '?random=' + Math.random(), target: '_blank' } })
                                 ],
                                 classNames: ['data-cell', 'link-cell'],
                             }),
