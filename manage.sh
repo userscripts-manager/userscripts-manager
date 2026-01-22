@@ -13,6 +13,7 @@ homepage_explicit="0"
 support_explicit="0"
 
 force="0"
+quick_test="0"
 
 src_dir="${this_dir}/src"
 common_file="${src_dir}/common.props.json"
@@ -73,6 +74,7 @@ help() {
     echo "    -s, --support SUPPORT            use SUPPORT for support url (issues)"
     echo "    -f, --force                      force to create scripts/styles even if they exist"
     echo "    -v, --set-version VERSION        provide version VERSION (for dist)"
+    echo "    --quick-test                     when testing, keep the test folder"
     echo ""
 }
 
@@ -136,6 +138,34 @@ publish() {
     cp -f "${this_script_basedir}/website/index.html" "${this_script_basedir}/website/userscripts.js" "${dist_dir}/"
     [ -f "${src_dir}/website.css" ] && cp -f "${src_dir}/website.css" "${dist_dir}/"
     touch "${dist_dir}/.nojekyll"
+}
+
+test() {
+    ensure_common
+    node --version > /dev/null 2>&1 || fail "node is not installed"
+    if ([ "${quick_test}" == "0" ])
+    then
+        rm -rf test
+    fi
+    if ([ ! -f "test/package.json" ])
+    then
+        mkdir -p test
+        echo "" > test/package.json
+        echo '{' >> test/package.json
+        echo '  "name": "test",' >> test/package.json
+        echo '  "packageManager": "yarn@4.6.0",' >> test/package.json
+        echo '  "scripts": {' >> test/package.json
+        echo '    "test": "jest"' >> test/package.json
+        echo '  },' >> test/package.json
+        echo '  "devDependencies": {' >> test/package.json
+        echo '    "jest": "^30.2.0"' >> test/package.json
+        echo '  }' >> test/package.json
+        echo '}' >> test/package.json
+        (cd test && yarn install)
+    fi
+    node "${this_script_basedir}/compile-userscripts.js" --test
+    (cd test && yarn test)
+    [ "${quick_test}" == "0" ] && rm -rf test
 }
 
 clean() {
@@ -232,6 +262,10 @@ do
         publish)
             action="publish"
             ;;
+
+        test)
+            action="test"
+            ;;
             
         clean)
             action="clean"
@@ -280,6 +314,11 @@ do
         -v|--set-version)
             version="${1}"
             shift
+            ;;
+
+
+        --quick-test)
+            quick_test="1"
             ;;
 
         *)

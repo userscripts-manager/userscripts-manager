@@ -351,6 +351,42 @@ const compileStyle = async (basename, content, filenames, props, userscripts, ou
     await close(handle)
 }
 
+const compileTest = async (basename, content, inFolder, outFile) => {
+    const { imports, grants, requires, bodyLines, localProps } = parseScriptContent(content)
+    imports.push(basename)
+    props = { ...localProps, name: basename }
+    grants.forEach((grant) => updateProps(props, 'grant', grant))
+    requires.forEach((require) => updateProps(props, 'require', require))
+
+    if (props['@import'] !== undefined) {
+        props['@import'].forEach((importName) => imports.push(importName))
+        delete props['@import']
+    }
+
+    const importContent = await resolveImports(imports, props, inFolder)
+
+    const handle = await open(outFile, 'w')
+
+    for (const [importName, importLines] of Object.entries(importContent.files)) {
+        await writeLine(handle, '')
+        await writeLine(handle, `// @imported_begin{${importName}}`)
+        for (const line of importLines) {
+            await writeLine(handle, line)
+        }
+        await writeLine(handle, `// @imported_end{${importName}}`)
+    }
+
+    await writeLine(handle, '')
+
+    await writeLine(handle, `// @test_begin{${basename}}`)
+    for (const line of bodyLines) {
+        await writeLine(handle, line)
+    }
+    await writeLine(handle, `// @test_end{${basename}}`)
+
+    await close(handle)
+}
+
 const compile = async (inFolder, outFolder, importFolder, pathName, commonProps, userscripts) => {
     const directories = []
     const scripts = {}
@@ -418,4 +454,27 @@ const compile = async (inFolder, outFolder, importFolder, pathName, commonProps,
     }
 }
 
-compile('src', 'dist', 'snippet')
+const processTest = async (inFolder, outFolder) => {
+    const files = (await fs.readdir(`${inFolder}`)).filter(f => f.endsWith('.test.js'))
+    const isDirectory = await isDir(outFolder)
+    if (!isDirectory) {
+        await makedirs(outFolder)
+    }
+    for (const file of files) {
+        const inFile = `${inFolder}/${file}`
+        const outFile = `${outFolder}/${file}`
+
+        const content = await readFile(inFile)
+        await compileTest(removeEnd(file, '.test.js'), content, inFolder, outFile)
+    }
+}
+
+if (process.argv.length == 2) {
+    compile('src', 'dist', 'snippet')
+} else if (process.argv.length == 3 && process.argv[2] === '--help') {
+    console.log('Usage: node compile-userscripts.js [--help] [--test]')
+} else if (process.argv.length == 3 && process.argv[2] === '--test') {
+    processTest('snippet', 'test')
+}    
+
+
