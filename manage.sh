@@ -63,6 +63,7 @@ help() {
     echo "    createjs DIRNAME SCRIPTNAME      create a new userscript name SCRIPTNAME in DIRNAME"
     echo "    createcss DIRNAME SCRIPTNAME     create a new userstyle name SCRIPTNAME in DIRNAME"
     echo "    publish                          create a distribution dir"
+    echo "    test                             test the snippets"
     echo "    clean                            clean distribution dir"
     echo "    install DIRNAME                  install the tool in DIRNAME linking to instance of the tool"
     echo "    config                           configure the tool"
