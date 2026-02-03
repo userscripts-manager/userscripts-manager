@@ -152,7 +152,20 @@ const parseStyleContent = (content) => {
     return { bodyLines, localProps }
 }
 
-const resolveImports = async (imports, props, importFolder, importContent, parsed) => {
+const chooseImport = async (importFolders, importName) => {
+    for (const importFolder of importFolders) {
+        const filename = `${importFolder}/${importName}.js`
+        try {
+            await fs.access(filename)
+            return filename
+        } catch (e) {
+            // continue searching
+        }
+    }
+    throw new Error(`Import "${importName}" not found in folders: ${importFolders.join(', ')}`)
+}
+
+const resolveImports = async (imports, props, importFolders, importContent, parsed) => {
     if (importContent === undefined) {
         importContent = {
             filenames: new Set(),
@@ -163,12 +176,12 @@ const resolveImports = async (imports, props, importFolder, importContent, parse
         parsed = {}
     }
     for (const importName of imports) {
-        const filename = `${importFolder}/${importName}.js`
+        const filename = await chooseImport(importFolders, importName)
         const content = await readFile(filename)
         if (parsed[importName] === undefined) {
             const { imports: subImports, grants: subGrants, requires: subRequires, bodyLines } = parseScriptContent(content)
             parsed[importName] = true
-            await resolveImports(subImports, props, importFolder, importContent, parsed)
+            await resolveImports(subImports, props, importFolders, importContent, parsed)
             subGrants.forEach((grant) => updateProps(props, 'grant', grant))
             subRequires.forEach((require) => updateProps(props, 'require', require))
             importContent.files[importName] = bodyLines
@@ -260,7 +273,7 @@ const defineDefaultProps = async (props, filenames) => {
     }
 }
 
-const compileScript = async (basename, content, filenames, globalProps, userscripts, outFolder, importFolder, subPath) => {
+const compileScript = async (basename, content, filenames, globalProps, userscripts, outFolder, importFolders, subPath) => {
     const { imports, grants, requires, bodyLines, localProps } = parseScriptContent(content)
     props = { ...globalProps, ...localProps, name: basename }
     grants.forEach((grant) => updateProps(props, 'grant', grant))
@@ -271,7 +284,7 @@ const compileScript = async (basename, content, filenames, globalProps, userscri
         delete props['@import']
     }
 
-    const importContent = await resolveImports(imports, props, importFolder)
+    const importContent = await resolveImports(imports, props, importFolders)
 
     if (props['grant'] !== undefined && props['grant'].includes('none') && props['grant'].length > 1) {
         props['grant'].splice(props['grant'].indexOf('none'), 1)
@@ -351,7 +364,7 @@ const compileStyle = async (basename, content, filenames, props, userscripts, ou
     await close(handle)
 }
 
-const compileTest = async (basename, content, inFolder, outFile) => {
+const compileTest = async (basename, content, inFolders, outFile) => {
     const { imports, grants, requires, bodyLines, localProps } = parseScriptContent(content)
     imports.push(basename)
     props = { ...localProps, name: basename }
@@ -363,7 +376,7 @@ const compileTest = async (basename, content, inFolder, outFile) => {
         delete props['@import']
     }
 
-    const importContent = await resolveImports(imports, props, inFolder)
+    const importContent = await resolveImports(imports, props, inFolders)
 
     const handle = await open(outFile, 'w')
 
@@ -387,7 +400,7 @@ const compileTest = async (basename, content, inFolder, outFile) => {
     await close(handle)
 }
 
-const compile = async (inFolder, outFolder, importFolder, pathName, commonProps, userscripts) => {
+const compile = async (inFolder, outFolder, importFolders, pathName, commonProps, userscripts) => {
     const directories = []
     const scripts = {}
     const styles = {}
@@ -419,29 +432,29 @@ const compile = async (inFolder, outFolder, importFolder, pathName, commonProps,
             commonProps.push(await readJson(inFile))
         } else if (file.endsWith('.user.js')) {
             const basename = removeEnd(file, '.user.js')
-            ensureKey(scripts, basename, {filenames: new Set()}).content = await readFile(inFile)
+            ensureKey(scripts, basename, { filenames: new Set() }).content = await readFile(inFile)
             scripts[basename].filenames.add(inFile)
         } else if (file.endsWith('.props.json')) {
             const basename = removeEnd(file, '.props.json')
-            ensureKey(scripts, basename, {filenames: new Set()}).props = await readJson(inFile)
+            ensureKey(scripts, basename, { filenames: new Set() }).props = await readJson(inFile)
             scripts[basename].filenames.add(inFile)
         } else if (file.endsWith('.user.css')) {
             const basename = removeEnd(file, '.user.css')
-            ensureKey(styles, basename, {filenames: new Set()}).content = await readFile(inFile)
+            ensureKey(styles, basename, { filenames: new Set() }).content = await readFile(inFile)
             styles[basename].filenames.add(inFile)
         } else if (file.endsWith('.props.json')) {
             const basename = removeEnd(file, '.props.json')
-            ensureKey(styles, basename, {filenames: new Set()}).props = await readJson(inFile)
+            ensureKey(styles, basename, { filenames: new Set() }).props = await readJson(inFile)
             styles[basename].filenames.add(inFile)
         }
 
     }
     for (const directory of directories) {
-        await compile(inFolder, outFolder, importFolder, `${subPath}${directory}`, commonProps, userscripts)
+        await compile(inFolder, outFolder, importFolders, `${subPath}${directory}`, commonProps, userscripts)
     }
     for (const [basename, { content, props, filenames }] of Object.entries(scripts)) {
         if (content !== undefined) {
-            await compileScript(basename, content, filenames, mergeProps([...commonProps, props]), userscripts, outFolder, importFolder, subPath)
+            await compileScript(basename, content, filenames, mergeProps([...commonProps, props]), userscripts, outFolder, importFolders, subPath)
         }
     }
     for (const [basename, { content, props, filenames }] of Object.entries(styles)) {
@@ -454,27 +467,59 @@ const compile = async (inFolder, outFolder, importFolder, pathName, commonProps,
     }
 }
 
-const processTest = async (inFolder, outFolder) => {
-    const files = (await fs.readdir(`${inFolder}`)).filter(f => f.endsWith('.test.js'))
-    const isDirectory = await isDir(outFolder)
-    if (!isDirectory) {
-        await makedirs(outFolder)
-    }
-    for (const file of files) {
-        const inFile = `${inFolder}/${file}`
-        const outFile = `${outFolder}/${file}`
+const processTest = async (inFolders, outFolder) => {
+    for (const inFolder of inFolders) {
+        const files = (await fs.readdir(`${inFolder}`)).filter(f => f.endsWith('.test.js'))
+        const isDirectory = await isDir(outFolder)
+        if (!isDirectory) {
+            await makedirs(outFolder)
+        }
+        for (const file of files) {
+            const inFile = `${inFolder}/${file}`
+            const outFile = `${outFolder}/${file}`
 
-        const content = await readFile(inFile)
-        await compileTest(removeEnd(file, '.test.js'), content, inFolder, outFile)
+            const content = await readFile(inFile)
+            await compileTest(removeEnd(file, '.test.js'), content, inFolders, outFile)
+        }
     }
 }
 
-if (process.argv.length == 2) {
-    compile('src', 'dist', 'snippet')
-} else if (process.argv.length == 3 && process.argv[2] === '--help') {
-    console.log('Usage: node compile-userscripts.js [--help] [--test]')
-} else if (process.argv.length == 3 && process.argv[2] === '--test') {
-    processTest('snippet', 'test')
-}    
+const readConfig = async (path) => {
+    try {
+        const config = await readJson(path)
+        return config
+    } catch (e) {
+        console.log(`Warning: Could not read config file at ${path}, using default configuration.`, e)
+        return {}
+    }
+}
 
+const getConfig = async (path) => {
+    let { src, dist, snippets, test } = await readConfig(path)
+    if (!src) {
+        src = 'src'
+    }
+    if (!dist) {
+        dist = 'dist'
+    }
+    if (!snippets) {
+        snippets = ['snippet']
+    }
+    if (!test) {
+        test = 'test'
+    }
+    return { src, dist, snippets, test }
+}
 
+const main = async (argv) => {
+    const { src, dist, snippets, test } = await getConfig('./userscripts.rc')
+    if (argv.length == 2) {
+        compile(src, dist, snippets)
+    } else if (argv.length == 3 && argv[2] === '--help') {
+        console.log('Usage: node compile-userscripts.js [--help] [--test]')
+    } else if (argv.length == 3 && argv[2] === '--test') {
+        processTest(snippets, test)
+    }
+}
+
+main(process.argv)
