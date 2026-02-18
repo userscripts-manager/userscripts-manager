@@ -1,4 +1,5 @@
 const fs = require('fs/promises')
+const path = require('path')
 
 const propsTable = ['grant', 'antifeature', 'require', 'resource', 'include', 'match', 'connect']
 keyOrders = ['name', 'namespace', 'version', 'description', 'author', 'homepage', 'supportURL', 'match', 'icon', 'grant']
@@ -16,10 +17,37 @@ const shell = async (command) => {
     })
 }
 
+const gitRootByDirnameCache = {}
+
 const getGitVersion = async (files) => {
-    const command = `git log -1 --date='format-local:%Y%m%d-%H%M%S' --format="%cd-%h" -- ${files.map(f => `"${f}"`).join(' ')}`
-    const { stdout, stderr } = await shell(command)
-    return stdout.trim()
+    const results = []
+    const rootPath = path.resolve('.')
+    const relativeFilesByRepo = {}
+    for (let file of files) {
+        const fullAbsolutePath = path.resolve(file)
+        const dirname = path.dirname(file)
+        if (! gitRootByDirnameCache[dirname]) {
+            const { stdout: gitRootOutput } = await shell(`git -C "${dirname}" rev-parse --show-toplevel`)
+            const gitRoot = gitRootOutput.trim()
+            gitRootByDirnameCache[dirname] = gitRoot
+        }
+        const gitRoot = gitRootByDirnameCache[dirname]
+        const gitRelativeRoot = path.relative(rootPath, gitRoot)
+        const gitRelativeFile = path.relative(gitRelativeRoot, fullAbsolutePath)
+        if (!relativeFilesByRepo[gitRelativeRoot]) {
+            relativeFilesByRepo[gitRelativeRoot] = []
+        }
+        relativeFilesByRepo[gitRelativeRoot].push(gitRelativeFile)
+    }
+    for (const [gitRelativeRoot, relativeFiles] of Object.entries(relativeFilesByRepo)) {
+        const command = `git -C "${gitRelativeRoot}" log -1 --date='format-local:%Y%m%d-%H%M%S' --format="%cd-%h" -- ${relativeFiles.map(f => `"${f}"`).join(' ')}`
+        const { stdout: result } = await shell(command)
+        if (result.trim()) {
+            results.push(result.trim())
+        }
+    }
+    results.sort()
+    return results[results.length - 1]
 }
 
 const display = (obj, ...objs) => {
