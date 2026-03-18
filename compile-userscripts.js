@@ -26,7 +26,7 @@ const getGitVersion = async (files) => {
     for (let file of files) {
         const fullAbsolutePath = path.resolve(file)
         const dirname = path.dirname(file)
-        if (! gitRootByDirnameCache[dirname]) {
+        if (!gitRootByDirnameCache[dirname]) {
             const { stdout: gitRootOutput } = await shell(`git -C "${dirname}" rev-parse --show-toplevel`)
             const gitRoot = gitRootOutput.trim()
             gitRootByDirnameCache[dirname] = gitRoot
@@ -428,7 +428,7 @@ const compileTest = async (basename, content, inFolders, outFile) => {
     await close(handle)
 }
 
-const compile = async (inFolder, outFolder, importFolders, pathName, commonProps, userscripts) => {
+const compile = async (inFolder, outFolder, importFolders, pathName, commonProps, userscripts, restrictNames) => {
     const directories = []
     const scripts = {}
     const styles = {}
@@ -454,31 +454,40 @@ const compile = async (inFolder, outFolder, importFolders, pathName, commonProps
     for (const file of files) {
         const inFile = `${inFolder}/${subPath}${file}`
         const isDirectory = await isDir(inFile)
+        const isAllowRestriction = (filename) => !restrictNames || restrictNames.map(x => x.startsWith(filename)).some(x => x);
         if (isDirectory) {
             directories.push(file)
         } else if (file === 'common.props.json') {
             commonProps.push(await readJson(inFile))
         } else if (file.endsWith('.user.js')) {
-            const basename = removeEnd(file, '.user.js')
-            ensureKey(scripts, basename, { filenames: new Set() }).content = await readFile(inFile)
-            scripts[basename].filenames.add(inFile)
+            if (isAllowRestriction(inFile)) {
+                const basename = removeEnd(file, '.user.js')
+                ensureKey(scripts, basename, { filenames: new Set() }).content = await readFile(inFile)
+                scripts[basename].filenames.add(inFile)
+            }
         } else if (file.endsWith('.props.json')) {
-            const basename = removeEnd(file, '.props.json')
-            ensureKey(scripts, basename, { filenames: new Set() }).props = await readJson(inFile)
-            scripts[basename].filenames.add(inFile)
+            if (isAllowRestriction(removeEnd(inFile, '.props.json'))) {
+                const basename = removeEnd(file, '.props.json')
+                ensureKey(scripts, basename, { filenames: new Set() }).props = await readJson(inFile)
+                scripts[basename].filenames.add(inFile)
+            }
         } else if (file.endsWith('.user.css')) {
-            const basename = removeEnd(file, '.user.css')
-            ensureKey(styles, basename, { filenames: new Set() }).content = await readFile(inFile)
-            styles[basename].filenames.add(inFile)
+            if (isAllowRestriction(inFile)) {
+                const basename = removeEnd(file, '.user.css')
+                ensureKey(styles, basename, { filenames: new Set() }).content = await readFile(inFile)
+                styles[basename].filenames.add(inFile)
+            }
         } else if (file.endsWith('.props.json')) {
-            const basename = removeEnd(file, '.props.json')
-            ensureKey(styles, basename, { filenames: new Set() }).props = await readJson(inFile)
-            styles[basename].filenames.add(inFile)
+            if (isAllowRestriction(removeEnd(inFile, '.props.json'))) {
+                const basename = removeEnd(file, '.props.json')
+                ensureKey(styles, basename, { filenames: new Set() }).props = await readJson(inFile)
+                styles[basename].filenames.add(inFile)
+            }
         }
 
     }
     for (const directory of directories) {
-        await compile(inFolder, outFolder, importFolders, `${subPath}${directory}`, commonProps, userscripts)
+        await compile(inFolder, outFolder, importFolders, `${subPath}${directory}`, commonProps, userscripts, restrictNames)
     }
     for (const [basename, { content, props, filenames }] of Object.entries(scripts)) {
         if (content !== undefined) {
@@ -547,6 +556,9 @@ const main = async (argv) => {
         console.log('Usage: node compile-userscripts.js [--help] [--test]')
     } else if (argv.length == 3 && argv[2] === '--test') {
         processTest(snippets, test)
+    } else if (argv.length == 4 && argv[2] === '--script') {
+        const scriptname = argv[3]
+        compile(src, dist, snippets, undefined, undefined, undefined, [scriptname])
     }
 }
 

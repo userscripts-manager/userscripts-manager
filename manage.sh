@@ -14,6 +14,9 @@ support_explicit="0"
 
 force="0"
 quick_test="0"
+script_dirname=""
+script_scriptname=""
+
 
 src_dir="${this_dir}/src"
 common_file="${src_dir}/common.props.json"
@@ -76,6 +79,7 @@ help() {
     echo "    -f, --force                      force to create scripts/styles even if they exist"
     echo "    -v, --set-version VERSION        provide version VERSION (for dist)"
     echo "    --quick-test                     when testing, keep the test folder"
+    echo "    --script DIRNAME SCRIPTNAME      when publishing, restrict publish to just one script"
     echo ""
 }
 
@@ -128,12 +132,25 @@ create_style() {
 
 publish() {
     ensure_common
+    scriptfilename=""
+    if ([ -n "${script_dirname}" ] && [ -n "${script_scriptname}" ])
+    then
+        scriptfilename="src/${script_dirname}/${script_scriptname}.user.js"
+    fi
+
     dist_dir="${this_dir}/dist"
     tmp_dir="${this_dir}/tmp"
     rm -rf "${dist_dir}" "${tmp_dir}"
 
     node --version > /dev/null 2>&1 || fail "node is not installed"
-    node "${this_script_basedir}/compile-userscripts.js"
+    [ -n "${scriptfilename}" ] && [ ! -f "${scriptfilename}" ] && fail "Script ${scriptfilename} doesn't exist"
+
+    if [ -n "${scriptfilename}" ]
+    then
+        node "${this_script_basedir}/compile-userscripts.js" --script "${scriptfilename}"
+    else
+        node "${this_script_basedir}/compile-userscripts.js"
+    fi
 
     echo "{\"version\":\"${version}\"}" > "${dist_dir}/version.json"
     cp -f "${this_script_basedir}/website/index.html" "${this_script_basedir}/website/userscripts.js" "${dist_dir}/"
@@ -320,6 +337,13 @@ do
 
         --quick-test)
             quick_test="1"
+            ;;
+
+        --script)
+            script_dirname="${1}"
+            script_scriptname="${2}"
+            shift
+            shift
             ;;
 
         *)
