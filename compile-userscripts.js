@@ -86,7 +86,7 @@ const ensureKey = (obj, key, defaultValue) => {
 }
 const mergeProps = (props) => props.reduce((acc, prop) => ({ ...acc, ...prop }), {})
 
-const atPropsSections = ['grant', 'require']
+const atPropsSections = ['grant', 'require', 'match']
 const atTechPropsSections = ['postheader']
 
 const atSections = ['import', ...atPropsSections, ...atTechPropsSections]
