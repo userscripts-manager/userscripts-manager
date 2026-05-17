@@ -86,20 +86,21 @@ const ensureKey = (obj, key, defaultValue) => {
 }
 const mergeProps = (props) => props.reduce((acc, prop) => ({ ...acc, ...prop }), {})
 
-const parseAtLine = (line, imports, grants, requires) => {
+const atPropsSections = ['grant', 'require']
+const atTechPropsSections = ['postheader']
+
+const atSections = ['import', ...atPropsSections, ...atTechPropsSections]
+
+const parseAtLine = (line, sections) => {
     const match = line.match(/^\s*\/\/\s*@(\w+)\{(.*)\}\s*$/)
     if (match !== null) {
         const [, keyword, value] = match
-        switch (keyword) {
-            case 'import':
-                imports.push(value)
-                return true
-            case 'grant':
-                grants.push(value)
-                return true
-            case 'require':
-                requires.push(value)
-                return true
+        if (atSections.includes(keyword)) {
+            if (sections[keyword] === undefined) {
+                sections[keyword] = []
+            }
+            sections[keyword].push(value)
+            return true
         }
     }
     return false
@@ -122,9 +123,8 @@ const parseScriptContent = (content) => {
     let isHeader = false
     const localProps = {}
     let bodyLines = []
-    const imports = []
-    const grants = []
-    const requires = []
+    const sections = {}
+    atSections.forEach(section => sections[section] = [])
     for (let line of content.split('\n')) {
         line = line.replace('\r', '')
         if (line.startsWith('// ==UserScript==')) {
@@ -139,7 +139,7 @@ const parseScriptContent = (content) => {
                     updateProps(localProps, key, value)
                 }
             } else {
-                if (!parseAtLine(line, imports, grants, requires)) {
+                if (!parseAtLine(line, sections)) {
                     bodyLines.push(line)
                 }
             }
@@ -148,7 +148,11 @@ const parseScriptContent = (content) => {
     const { begin, end } = bodyLines.reduce((acc, line, index) => (line === '' ? acc : { begin: acc.begin == undefined ? index : acc.begin, end: index }), { begin: undefined, end: 0 })
     bodyLines = bodyLines.slice(begin, end + 1)
 
-    return { imports, grants, requires, bodyLines, localProps }
+    return {
+        sections,
+        bodyLines,
+        localProps
+    }
 }
 
 const parseStyleContent = (content) => {
@@ -193,7 +197,16 @@ const chooseImport = async (importFolders, importName) => {
     throw new Error(`Import "${importName}" not found in folders: ${importFolders.join(', ')}`)
 }
 
-const resolveImports = async (imports, props, importFolders, importContent, parsed) => {
+const moveSectionsToProps = (sections, props, techProps) => {
+    for (const section of atPropsSections) {
+        sections[section].forEach((value) => updateProps(props, section, value))
+    }
+    for (const section of atTechPropsSections) {
+        sections[section].forEach((value) => updateProps(techProps, section, value))
+    }
+}
+
+const resolveImports = async (imports, props, techProps, importFolders, importContent, parsed) => {
     if (importContent === undefined) {
         importContent = {
             filenames: new Set(),
@@ -207,11 +220,10 @@ const resolveImports = async (imports, props, importFolders, importContent, pars
         const filename = await chooseImport(importFolders, importName)
         const content = await readFile(filename)
         if (parsed[importName] === undefined) {
-            const { imports: subImports, grants: subGrants, requires: subRequires, bodyLines } = parseScriptContent(content)
+            const { sections, bodyLines } = parseScriptContent(content)
             parsed[importName] = true
-            await resolveImports(subImports, props, importFolders, importContent, parsed)
-            subGrants.forEach((grant) => updateProps(props, 'grant', grant))
-            subRequires.forEach((require) => updateProps(props, 'require', require))
+            await resolveImports(sections.imports, props, techProps, importFolders, importContent, parsed)
+            moveSectionsToProps(sections, props, techProps)
             importContent.files[importName] = bodyLines
             importContent.filenames.add(filename)
         }
@@ -244,6 +256,16 @@ const writeScriptHeader = async (handle, props) => {
         }
     }
     await writeLine(handle, '// ==/UserScript==')
+}
+
+const writeScriptPostHeader = async (handle, techProps) => {
+    if (techProps && techProps['postheader'] !== undefined && techProps['postheader'].length > 0) {
+        await writeLine(handle, '// @begin_postheader');
+        for (const line of techProps['postheader']) {
+            await writeLine(handle, line);
+        }
+        await writeLine(handle, '// @end_postheader');
+    }
 }
 
 const writeStyleHeaderKey = async (handle, key, value, keyLength) => {
@@ -302,17 +324,18 @@ const defineDefaultProps = async (props, filenames) => {
 }
 
 const compileScript = async (basename, content, filenames, globalProps, userscripts, outFolder, importFolders, subPath) => {
-    const { imports, grants, requires, bodyLines, localProps } = parseScriptContent(content)
+    const { sections, bodyLines, localProps } = parseScriptContent(content)
     props = { ...globalProps, ...localProps, name: basename }
-    grants.forEach((grant) => updateProps(props, 'grant', grant))
-    requires.forEach((require) => updateProps(props, 'require', require))
+    techProps = {}
+
+    moveSectionsToProps(sections, props, techProps)
 
     if (props['@import'] !== undefined) {
-        props['@import'].forEach((importName) => imports.push(importName))
+        props['@import'].forEach((importName) => sections.import.push(importName))
         delete props['@import']
     }
 
-    const importContent = await resolveImports(imports, props, importFolders)
+    const importContent = await resolveImports(sections.import, props, techProps, importFolders)
 
     if (props['grant'] !== undefined && props['grant'].includes('none') && props['grant'].length > 1) {
         props['grant'].splice(props['grant'].indexOf('none'), 1)
@@ -331,6 +354,8 @@ const compileScript = async (basename, content, filenames, globalProps, userscri
     const handle = await open(outFile, 'w')
 
     await writeScriptHeader(handle, props)
+
+    await writeScriptPostHeader(handle, techProps)
 
     await writeLine(handle, '')
 
@@ -393,18 +418,20 @@ const compileStyle = async (basename, content, filenames, props, userscripts, ou
 }
 
 const compileTest = async (basename, content, inFolders, outFile) => {
-    const { imports, grants, requires, bodyLines, localProps } = parseScriptContent(content)
-    imports.push(basename)
+    const { sections, bodyLines, localProps } = parseScriptContent(content)
+    sections.import.push(basename)
+
     props = { ...localProps, name: basename }
-    grants.forEach((grant) => updateProps(props, 'grant', grant))
-    requires.forEach((require) => updateProps(props, 'require', require))
+    techProps = {}
+
+    moveSectionsToProps(sections, props, techProps)
 
     if (props['@import'] !== undefined) {
-        props['@import'].forEach((importName) => imports.push(importName))
+        props['@import'].forEach((importName) => sections.import.push(importName))
         delete props['@import']
     }
 
-    const importContent = await resolveImports(imports, props, inFolders)
+    const importContent = await resolveImports(sections.import, props, techProps, inFolders)
 
     const handle = await open(outFile, 'w')
 
