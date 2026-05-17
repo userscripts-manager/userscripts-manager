@@ -2,7 +2,15 @@ const fs = require('fs/promises')
 const path = require('path')
 
 const propsTable = ['grant', 'antifeature', 'require', 'resource', 'include', 'match', 'connect']
-keyOrders = ['name', 'namespace', 'version', 'description', 'author', 'homepage', 'supportURL', 'match', 'icon', 'grant']
+const keyOrders = ['name', 'namespace', 'version', 'description', 'author', 'homepage', 'supportURL', 'match', 'icon', 'grant']
+
+const atPropsSections = ['grant', 'require', 'match']
+const atTechPropsSections = ['postheader']
+const techPropsTable = ['postheader']
+
+const atSections = ['import', ...atPropsSections, ...atTechPropsSections]
+const allPropsTable = [...propsTable, ...techPropsTable]
+
 
 const shell = async (command) => {
     const { exec } = require('child_process')
@@ -51,7 +59,7 @@ const getGitVersion = async (files) => {
 }
 
 const display = (obj, ...objs) => {
-    result = JSON.stringify(obj, null, 4)
+    let result = JSON.stringify(obj, null, 4)
     if (objs !== undefined) {
         for (const obj of objs) {
             result += ' ' + (JSON.stringify(obj, null, 0))
@@ -86,11 +94,6 @@ const ensureKey = (obj, key, defaultValue) => {
 }
 const mergeProps = (props) => props.reduce((acc, prop) => ({ ...acc, ...prop }), {})
 
-const atPropsSections = ['grant', 'require', 'match']
-const atTechPropsSections = ['postheader']
-
-const atSections = ['import', ...atPropsSections, ...atTechPropsSections]
-
 const parseAtLine = (line, sections) => {
     const match = line.match(/^\s*\/\/\s*@(\w+)\{(.*)\}\s*$/)
     if (match !== null) {
@@ -107,7 +110,7 @@ const parseAtLine = (line, sections) => {
 }
 
 const updateProps = (props, key, value) => {
-    if (propsTable.includes(key)) {
+    if (allPropsTable.includes(key)) {
         if (props[key] === undefined) {
             props[key] = []
         }
@@ -207,6 +210,7 @@ const moveSectionsToProps = (sections, props, techProps) => {
 }
 
 const resolveImports = async (imports, props, techProps, importFolders, importContent, parsed) => {
+    console.log({ imports })
     if (importContent === undefined) {
         importContent = {
             filenames: new Set(),
@@ -221,8 +225,9 @@ const resolveImports = async (imports, props, techProps, importFolders, importCo
         const content = await readFile(filename)
         if (parsed[importName] === undefined) {
             const { sections, bodyLines } = parseScriptContent(content)
+            console.log({ filename, sections })
             parsed[importName] = true
-            await resolveImports(sections.imports, props, techProps, importFolders, importContent, parsed)
+            await resolveImports(sections.import, props, techProps, importFolders, importContent, parsed)
             moveSectionsToProps(sections, props, techProps)
             importContent.files[importName] = bodyLines
             importContent.filenames.add(filename)
@@ -260,6 +265,7 @@ const writeScriptHeader = async (handle, props) => {
 
 const writeScriptPostHeader = async (handle, techProps) => {
     if (techProps && techProps['postheader'] !== undefined && techProps['postheader'].length > 0) {
+        await writeLine(handle, '');
         await writeLine(handle, '// @begin_postheader');
         for (const line of techProps['postheader']) {
             await writeLine(handle, line);
@@ -328,7 +334,11 @@ const compileScript = async (basename, content, filenames, globalProps, userscri
     props = { ...globalProps, ...localProps, name: basename }
     techProps = {}
 
+    console.log({ sections })
+
     moveSectionsToProps(sections, props, techProps)
+
+    console.log({ props, techProps })
 
     if (props['@import'] !== undefined) {
         props['@import'].forEach((importName) => sections.import.push(importName))
