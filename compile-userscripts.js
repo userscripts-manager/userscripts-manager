@@ -210,7 +210,6 @@ const moveSectionsToProps = (sections, props, techProps) => {
 }
 
 const resolveImports = async (imports, props, techProps, importFolders, importContent, parsed) => {
-    console.log({ imports })
     if (importContent === undefined) {
         importContent = {
             filenames: new Set(),
@@ -225,7 +224,6 @@ const resolveImports = async (imports, props, techProps, importFolders, importCo
         const content = await readFile(filename)
         if (parsed[importName] === undefined) {
             const { sections, bodyLines } = parseScriptContent(content)
-            console.log({ filename, sections })
             parsed[importName] = true
             await resolveImports(sections.import, props, techProps, importFolders, importContent, parsed)
             moveSectionsToProps(sections, props, techProps)
@@ -334,11 +332,7 @@ const compileScript = async (basename, content, filenames, globalProps, userscri
     props = { ...globalProps, ...localProps, name: basename }
     techProps = {}
 
-    console.log({ sections })
-
     moveSectionsToProps(sections, props, techProps)
-
-    console.log({ props, techProps })
 
     if (props['@import'] !== undefined) {
         props['@import'].forEach((importName) => sections.import.push(importName))
